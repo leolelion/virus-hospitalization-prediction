@@ -40,7 +40,7 @@ def fetch_grippe_records(region=region, batch_size=100):
 data = fetch_grippe_records(region)
 df = pd.DataFrame(data)
 
-def clean_disease_data(data, start_year=2022):
+def clean_disease_data(df, start_year=2022):
     # Keep relevant columns (based on your keys)
     cols = [
         "date_complet",
@@ -59,7 +59,10 @@ def clean_disease_data(data, start_year=2022):
     # Sort chronologically
     df = df.sort_values("date_complet")
 
-    df = df[df["date_complet"] >= pd.Timestamp("{start_year}-01-01")]
+    # Filter by start year
+    df = df[df["date_complet"] >= pd.Timestamp(f"{start_year}-01-01")]
+    
+    return df
 
 
 def fetch_temperature_data(start_date, end_date):
@@ -104,3 +107,18 @@ def merge_and_plot(df, temp_df):
 
 
 print(df.columns)
+
+# Clean the data
+df_cleaned = clean_disease_data(df)
+
+# Get date range for temperature data
+start_date = df_cleaned["date_complet"].min()
+end_date = df_cleaned["date_complet"].max()
+
+print(f"Fetching temperature data from {start_date.date()} to {end_date.date()}")
+
+# Fetch temperature data
+temp_df = fetch_temperature_data(start_date, end_date)
+
+# Merge and plot the data
+merge_and_plot(df_cleaned, temp_df)
