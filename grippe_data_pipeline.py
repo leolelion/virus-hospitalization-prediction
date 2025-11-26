@@ -320,8 +320,6 @@ def calculate_simplified_aqi(df):
     # Take maximum of all pollutant AQIs
     return pd.DataFrame([pm25_aqi, pm10_aqi, no2_aqi, o3_aqi]).max()
 
-
-
 # Step 5: School calendar
 def fetch_school_calendar():
     # Placeholder: Replace with data.gouv.fr school calendar logic
@@ -343,7 +341,6 @@ def add_lagged_features(df, target_col):
     for lag in range(1, 5):
         df[f"{target_col}_lag_{lag}"] = df[target_col].shift(lag)
     return df
-
 
 # Step 8: Build dataset for a single region
 def build_region_dataset(region_key):
