@@ -321,11 +321,102 @@ def calculate_simplified_aqi(df):
     return pd.DataFrame([pm25_aqi, pm10_aqi, no2_aqi, o3_aqi]).max()
 
 # Step 5: School calendar
-def fetch_school_calendar():
-    # Placeholder: Replace with data.gouv.fr school calendar logic
-    df = pd.DataFrame({"date_complet": pd.date_range(START_DATE, END_DATE, freq="W-MON")})
-    df["is_vacation_week"] = np.random.choice([0, 1], size=len(df))
-    df["is_back_to_school"] = np.random.choice([0, 1], size=len(df))
+def fetch_school_calendar(region_key):
+    """Fetch real French school calendar data for a specific region"""
+    from vacation.school_calendar import fetch_all_vacations, expand_vacations_to_weeks, get_region_weekly_vacation
+    
+    region_info = FRENCH_REGIONS[region_key]
+    region_name = region_info["name"]
+    
+    # Map region keys to school calendar region names (must match vacation/school_calendar.py)
+    region_mapping = {
+        "ile_de_france": "ile_de_france",
+        "auvergne_rhone_alpes": "auvergne_rhone_alpes", 
+        "provence_alpes_cote_azur": "provence_alpes_cote_d_azur",  # Note: 'd' not 'de'
+        "nouvelle_aquitaine": "nouvelle_aquitaine",
+        "occitanie": "occitanie",
+        "hauts_de_france": "haut_de_france"  # Note: 'haut' not 'hauts'
+    }
+    
+    school_region = region_mapping.get(region_key)
+    
+    if not school_region:
+        print(f"  ⚠️  No school calendar mapping for {region_name}, using mock data")
+        return create_mock_school_calendar()
+    
+    try:
+        print(f"Fetching school calendar for {region_name}...")
+        
+        # Fetch all vacation data (cached by imports)
+        vacations_df = fetch_all_vacations()
+        
+        # Expand to weekly format
+        weekly_vac_df = expand_vacations_to_weeks(vacations_df, START_DATE, END_DATE)
+        
+        # Get region-specific data
+        region_calendar = get_region_weekly_vacation(school_region, weekly_vac_df)
+        
+        # Rename columns to match pipeline expectations
+        region_calendar = region_calendar.rename(columns={'week_start': 'date_complet'})
+        
+        # Fill missing weeks with False values
+        all_weeks = pd.DataFrame({"date_complet": pd.date_range(START_DATE, END_DATE, freq="W-MON")})
+        
+        # Merge and fill missing values
+        full_calendar = all_weeks.merge(region_calendar[['date_complet', 'is_vacation_week', 'is_back_to_school']], 
+                                      on='date_complet', how='left')
+        full_calendar['is_vacation_week'] = full_calendar['is_vacation_week'].fillna(False)
+        full_calendar['is_back_to_school'] = full_calendar['is_back_to_school'].fillna(False)
+        
+        print(f"  Fetched {len(full_calendar)} weeks of school calendar data")
+        print(f"  Vacation weeks: {full_calendar['is_vacation_week'].sum()}")
+        print(f"  Back-to-school weeks: {full_calendar['is_back_to_school'].sum()}")
+        
+        return full_calendar
+        
+    except Exception as e:
+        print(f"  ❌ Failed to fetch school calendar for {region_name}: {e}")
+        print(f"  Using mock school calendar data")
+        return create_mock_school_calendar()
+
+def create_mock_school_calendar():
+    """Create mock school calendar data with realistic patterns"""
+    dates = pd.date_range(START_DATE, END_DATE, freq="W-MON")
+    
+    # Create realistic vacation pattern (summer, winter, spring breaks)
+    vacation_weeks = []
+    back_to_school_weeks = []
+    
+    for year in range(2022, 2027):
+        # Summer vacation (July-August, ~8 weeks)
+        summer_start = pd.Timestamp(f"{year}-07-01")
+        summer_end = pd.Timestamp(f"{year}-08-31")
+        summer_weeks = pd.date_range(summer_start, summer_end, freq="W-MON")
+        vacation_weeks.extend(summer_weeks)
+        if summer_end + pd.Timedelta(days=7) <= dates.max():
+            back_to_school_weeks.append(summer_end + pd.Timedelta(days=7) - pd.to_timedelta(summer_end.weekday(), unit='d'))
+        
+        # Winter break (2 weeks around Christmas/New Year)
+        winter_start = pd.Timestamp(f"{year}-12-23")
+        winter_end = pd.Timestamp(f"{year+1}-01-06")
+        winter_weeks = pd.date_range(winter_start, winter_end, freq="W-MON")
+        vacation_weeks.extend(winter_weeks)
+        if winter_end + pd.Timedelta(days=7) <= dates.max():
+            back_to_school_weeks.append(winter_end + pd.Timedelta(days=7) - pd.to_timedelta(winter_end.weekday(), unit='d'))
+        
+        # Spring break (2 weeks in April)
+        spring_start = pd.Timestamp(f"{year}-04-15")
+        spring_end = pd.Timestamp(f"{year}-04-29")
+        spring_weeks = pd.date_range(spring_start, spring_end, freq="W-MON")
+        vacation_weeks.extend(spring_weeks)
+        if spring_end + pd.Timedelta(days=7) <= dates.max():
+            back_to_school_weeks.append(spring_end + pd.Timedelta(days=7) - pd.to_timedelta(spring_end.weekday(), unit='d'))
+    
+    # Create DataFrame
+    df = pd.DataFrame({"date_complet": dates})
+    df["is_vacation_week"] = df["date_complet"].isin(vacation_weeks)
+    df["is_back_to_school"] = df["date_complet"].isin(back_to_school_weeks)
+    
     return df
 
 # Step 6: Temporal features
@@ -356,7 +447,7 @@ def build_region_dataset(region_key):
     grippe = fetch_hospitalization_data(region_key, disease=DISEASE)
     weather = fetch_weather_data(region_key)
     air = fetch_air_quality_data(region_key)
-    school = fetch_school_calendar()
+    school = fetch_school_calendar(region_key)
 
     # Merge all data sources
     df = base.merge(grippe, on="date_complet", how="left")
