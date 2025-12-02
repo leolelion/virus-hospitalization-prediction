@@ -16,8 +16,7 @@ memory = Memory(cache_dir, verbose=0)
 load_dotenv()
 
 # Constants
-START_DATE = "2022-01-01"
-START_DATE = pd.Timestamp("2022-01-01").strftime("%Y-%m-%d")
+START_DATE = pd.Timestamp("2020-01-01").strftime("%Y-%m-%d")
 END_DATE = datetime.today().strftime("%Y-%m-%d")
 DISEASE = "grippe"
 AIRPARIF_API_KEY = os.getenv("AIRPARIF_API_KEY")
@@ -109,7 +108,7 @@ def fetch_hospitalization_data(region_key, batch_size=100, disease=DISEASE):
             print(f"  ⚠️  No hospitalization data found for {health_region}")
             return create_empty_disease_dataframe()
             
-        return clean_disease_data(pd.DataFrame(all_records), START_YEAR=2022, disease=disease)
+        return clean_disease_data(pd.DataFrame(all_records), START_YEAR=2020, disease=disease)
         
     except Exception as e:
         print(f"  ❌ Failed to fetch hospitalization data for {health_region}: {e}")
@@ -167,7 +166,7 @@ def create_empty_disease_dataframe():
     dates = pd.date_range(START_DATE, END_DATE, freq="W-MON")
     return pd.DataFrame({
         "date_complet": dates,
-        "semaine": ["2022-W01"] * len(dates),  # Placeholder
+        "semaine": ["2020-W01"] * len(dates),  # Placeholder
         "taux_passages_grippe_sau": [np.nan] * len(dates),
         "taux_hospit_grippe_sau": [np.nan] * len(dates),
         "taux_actes_grippe_sos": [np.nan] * len(dates)
@@ -387,7 +386,7 @@ def create_mock_school_calendar():
     vacation_weeks = []
     back_to_school_weeks = []
     
-    for year in range(2022, 2027):
+    for year in range(2020, 2027):
         # Summer vacation (July-August, ~8 weeks)
         summer_start = pd.Timestamp(f"{year}-07-01")
         summer_end = pd.Timestamp(f"{year}-08-31")
@@ -548,10 +547,10 @@ if __name__ == "__main__":
     print(single_region_df['taux_hospit_grippe_sau'].describe())
     
     print(f"\nFirst 3 rows:")
-    print(single_region_df.head(3))
+    print(single_region_df.tailn(20))
     
-    # Option 2: Build datasets for multiple regions (comment out for faster execution)
-    """
+    # Option 2: Build datasets for multiple regions (enable for multi-region demo)
+    
     print("\n" + "=" * 80)
     print("OPTION 2: MULTI-REGION DATASETS")  
     print("=" * 80)
@@ -569,24 +568,23 @@ if __name__ == "__main__":
         print(f"{region_name:25} | {df.shape[0]:3} weeks | {missing_target:2} missing targets")
     
     # Example: Compare regions
-    print(f"\n🔍 REGIONAL COMPARISON:")
-    print("-" * 50)
-    for region_key, df in region_datasets.items():
-        region_name = FRENCH_REGIONS[region_key]['name']
-        if not df['taux_hospit_grippe_sau'].isnull().all():
-            avg_hosp = df['taux_hospit_grippe_sau'].mean()
-            avg_temp = df['temp_mean'].mean()
-            avg_pm25 = df['pm25'].mean()
-            print(f"{region_name:25} | Hosp: {avg_hosp:6.1f} | Temp: {avg_temp:5.1f}°C | PM2.5: {avg_pm25:5.1f}")
-    """
+    # print(f"\n🔍 REGIONAL COMPARISON:")
+    # print("-" * 50)
+    # for region_key, df in region_datasets.items():
+    #     region_name = FRENCH_REGIONS[region_key]['name']
+    #     if not df['taux_hospit_grippe_sau'].isnull().all():
+    #         avg_hosp = df['taux_hospit_grippe_sau'].mean()
+    #         avg_temp = df['temp_mean'].mean()
+    #         avg_pm25 = df['pm25'].mean()
+    #         print(f"{region_name:25} | Hosp: {avg_hosp:6.1f} | Temp: {avg_temp:5.1f}°C | PM2.5: {avg_pm25:5.1f}")
     
-    print("\n" + "=" * 80)
-    print("AVAILABLE REGIONS")
-    print("=" * 80)
-    print("You can build datasets for any of these regions:")
-    for key, info in FRENCH_REGIONS.items():
-        lat, lon = info['coordinates']
-        print(f"• {key:20} | {info['name']:25} | ({lat:6.2f}, {lon:6.2f}) | {info['description']}")
+    # print("\n" + "=" * 80)
+    # print("AVAILABLE REGIONS")
+    # print("=" * 80)
+    # print("You can build datasets for any of these regions:")
+    # for key, info in FRENCH_REGIONS.items():
+    #     lat, lon = info['coordinates']
+    #     print(f"• {key:20} | {info['name']:25} | ({lat:6.2f}, {lon:6.2f}) | {info['description']}")
     
     print(f"\n💡 USAGE EXAMPLES:")
     print("# Single region:")
